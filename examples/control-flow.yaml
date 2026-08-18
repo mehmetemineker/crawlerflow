@@ -1,0 +1,26 @@
+version: 1
+
+workflow:
+  name: control-flow-example
+
+variables:
+  cities:
+    - istanbul
+    - ankara
+
+steps:
+  - foreach:
+      items: "{{cities}}"
+      as: city
+      steps:
+        - if:
+            condition:
+              left: "{{loop.city}}"
+              operator: eq
+              right: istanbul
+            then:
+              - log:
+                  message: "First city: {{loop.city|upper}}"
+            else:
+              - log:
+                  message: "Other city: {{loop.city|upper}}"

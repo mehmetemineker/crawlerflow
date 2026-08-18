@@ -1,0 +1,17 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "crawlerflow-example-plugin"
+version = "0.1.0"
+description = "Example external plugin for CrawlerFlow"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = ["crawlerflow>=0.1.0"]
+
+[project.entry-points."crawlerflow.plugins"]
+example = "crawlerflow_example_plugin:ExamplePlugin"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/crawlerflow_example_plugin"]

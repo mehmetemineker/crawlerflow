@@ -1,0 +1,32 @@
+version: 1
+
+workflow:
+  name: retry-and-logging
+
+logging:
+  path: output/workflow.jsonl
+  mode: overwrite
+
+steps:
+  - save_text:
+      path: output/result.txt
+      content: CrawlerFlow
+    retry:
+      attempts: 3
+      delay: 0.25
+      backoff: 2
+      max_delay: 2
+    on_error: continue
+    save_error_as: save_failure
+
+  - if:
+      condition:
+        left: save_failure
+        operator: in
+        right: "{{outputs}}"
+      then:
+        - log:
+            message: "Save failed: {{save_failure.error}}"
+      else:
+        - log:
+            message: Save completed

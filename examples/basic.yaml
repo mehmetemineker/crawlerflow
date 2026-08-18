@@ -1,0 +1,17 @@
+version: 1
+
+workflow:
+  name: basic-example
+
+variables:
+  project: CrawlerFlow
+  output_file: output/hello.txt
+
+steps:
+  - log:
+      message: "Starting {{project}}"
+
+  - save_text:
+      path: "{{output_file}}"
+      content: "{{project|upper}} is running."
+

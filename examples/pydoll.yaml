@@ -1,0 +1,29 @@
+version: 1
+
+workflow:
+  name: pydoll-example
+
+browser:
+  engine: pydoll
+  headless: false
+  arguments:
+    - --do-not-de-elevate
+
+variables:
+  url: https://example.com
+
+steps:
+  - goto:
+      url: "{{url}}"
+
+  - wait_network:
+      timeout: 15
+
+  - extract:
+      selector: h1
+      text: true
+      save_as: title
+
+  - save_text:
+      path: output/pydoll-title.txt
+      content: "{{title|trim}}"

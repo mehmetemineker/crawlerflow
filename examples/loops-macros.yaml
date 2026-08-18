@@ -1,0 +1,20 @@
+version: 1
+
+workflow:
+  name: loops-and-macros
+
+macros:
+  report_date:
+    - log:
+        message: "Report date: {{macro.value|date('%d.%m.%Y')}}"
+
+steps:
+  - foreach_date:
+      start: 2026-08-01
+      end: 2026-08-05
+      step_days: 2
+      steps:
+        - run_macro:
+            name: report_date
+            with:
+              value: "{{loop.date}}"

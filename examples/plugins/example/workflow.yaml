@@ -1,0 +1,18 @@
+version: 1
+workflow:
+  name: external-plugin-example
+plugins:
+  - name: example
+    settings:
+      prefix: "<<"
+      suffix: ">>"
+steps:
+  - set_output:
+      key: message
+      value: CrawlerFlow plugin works
+  - decorate:
+      value: "{{message}}"
+      save_as: decorated_message
+  - save_text:
+      path: output/plugin-result.txt
+      content: "{{decorated_message}}"
