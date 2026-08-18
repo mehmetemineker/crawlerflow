@@ -1,7 +1,25 @@
 # CrawlerFlow
 
+[![PyPI version](https://img.shields.io/pypi/v/crawlerflow.svg)](https://pypi.org/project/crawlerflow/)
+[![Python versions](https://img.shields.io/pypi/pyversions/crawlerflow.svg)](https://pypi.org/project/crawlerflow/)
+[![License](https://img.shields.io/pypi/l/crawlerflow.svg)](https://github.com/mehmetemineker/crawlerflow/blob/main/LICENSE)
+[![Downloads](https://img.shields.io/pypi/dm/crawlerflow.svg)](https://pypi.org/project/crawlerflow/)
+[![Wheel](https://img.shields.io/pypi/wheel/crawlerflow.svg)](https://pypi.org/project/crawlerflow/#files)
+
 CrawlerFlow is a declarative, YAML-based workflow engine for browser automation and web
 scraping. Workflows describe what should happen; adapters and steps decide how it happens.
+
+## Installation
+
+```bash
+pip install crawlerflow
+```
+
+Include browser support to run Pydoll-backed workflows:
+
+```bash
+pip install "crawlerflow[browser]"
+```
 
 ## Current foundation
 
