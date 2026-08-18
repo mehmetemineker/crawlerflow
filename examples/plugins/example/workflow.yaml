@@ -9,7 +9,7 @@ plugins:
 steps:
   - set_output:
       key: message
-      value: CrawlerFlow plugin works
+      value: Crawlerflow plugin works
   - decorate:
       value: "{{message}}"
       save_as: decorated_message

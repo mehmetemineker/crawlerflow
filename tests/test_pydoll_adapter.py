@@ -120,7 +120,7 @@ async def test_maps_browser_operations_to_pydoll(tmp_path: Path) -> None:
 
     await adapter.goto("https://example.com")
     await adapter.click("#submit")
-    await adapter.fill("#name", "CrawlerFlow")
+    await adapter.fill("#name", "Crawlerflow")
     await adapter.select("#city", "34")
     evaluated = await adapter.evaluate("return document.title")
     html = await adapter.html()
@@ -137,7 +137,7 @@ async def test_maps_browser_operations_to_pydoll(tmp_path: Path) -> None:
     await adapter.close()
 
     assert ("go_to", "https://example.com") in tab.calls
-    assert tab.element.calls[:3] == ["click", "clear", ("insert_text", "CrawlerFlow")]
+    assert tab.element.calls[:3] == ["click", "clear", ("insert_text", "Crawlerflow")]
     assert tab.element.selected_value == "34"
     assert evaluated == "Example"
     assert html == "<html>Example</html>"

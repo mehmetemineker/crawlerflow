@@ -23,7 +23,7 @@ workflow:
   name: basic-example
 
 variables:
-  project: CrawlerFlow
+  project: Crawlerflow
   output_file: output/hello.txt
 
 steps:

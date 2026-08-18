@@ -10,7 +10,7 @@ from crawlerflow.engine.executor import WorkflowExecutor
 from crawlerflow.engine.registry import StepRegistry, default_registry
 from crawlerflow.events import ConsoleEventLogger, EventBus, JsonEventLogger
 from crawlerflow.expressions import ExpressionEngine
-from crawlerflow.plugins import CrawlerFlowPlugin, PluginManager
+from crawlerflow.plugins import CrawlerflowPlugin, PluginManager
 from crawlerflow.steps import load_builtin_steps
 from crawlerflow.workflow import WorkflowDocument, WorkflowLoader
 from crawlerflow.workflow.models import StepDefinition
@@ -26,7 +26,7 @@ class WorkflowRunner:
         registry: StepRegistry | None = None,
         expression_engine: ExpressionEngine | None = None,
         event_bus: EventBus | None = None,
-        plugins: Iterable[CrawlerFlowPlugin] = (),
+        plugins: Iterable[CrawlerflowPlugin] = (),
     ) -> None:
         self.browser = browser
         self.expression_engine = expression_engine or ExpressionEngine()
@@ -116,7 +116,7 @@ class WorkflowRunner:
         )
         context._event_bus = self.event_bus
         executor = WorkflowExecutor(self.registry, self.expression_engine, self.event_bus)
-        started_plugins: tuple[CrawlerFlowPlugin, ...] = ()
+        started_plugins: tuple[CrawlerflowPlugin, ...] = ()
         primary_error: BaseException | None = None
         try:
             started_plugins = await self.plugin_manager.startup(context)

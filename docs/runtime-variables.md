@@ -1,6 +1,6 @@
 # Runtime variables
 
-CrawlerFlow adds two date values when each workflow run starts:
+Crawlerflow adds two date values when each workflow run starts:
 
 - `today`: the local calendar date.
 - `now`: the local timezone-aware date and time.

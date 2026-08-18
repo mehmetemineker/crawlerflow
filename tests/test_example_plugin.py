@@ -30,4 +30,4 @@ async def test_external_example_plugin_package(
     await WorkflowRunner(plugins=[plugin_module.ExamplePlugin()]).run(workflow_path)
 
     result_path = tmp_path / "output" / "plugin-result.txt"
-    assert result_path.read_text(encoding="utf-8") == "<<CrawlerFlow plugin works>>"
+    assert result_path.read_text(encoding="utf-8") == "<<Crawlerflow plugin works>>"

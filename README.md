@@ -1,4 +1,4 @@
-# CrawlerFlow
+# Crawlerflow
 
 [![PyPI version](https://img.shields.io/pypi/v/crawlerflow.svg)](https://pypi.org/project/crawlerflow/)
 [![Python versions](https://img.shields.io/pypi/pyversions/crawlerflow.svg)](https://pypi.org/project/crawlerflow/)
@@ -7,7 +7,7 @@
 [![Wheel](https://img.shields.io/pypi/wheel/crawlerflow.svg)](https://pypi.org/project/crawlerflow/#files)
 [![Documentation](https://img.shields.io/badge/docs-github.io-blue.svg)](https://mehmetemineker.github.io/crawlerflow/)
 
-CrawlerFlow is a declarative, YAML-based workflow engine for browser automation and web
+Crawlerflow is a declarative, YAML-based workflow engine for browser automation and web
 scraping. Workflows describe what should happen; adapters and steps decide how it happens.
 
 📖 **[Read the documentation](https://mehmetemineker.github.io/crawlerflow/)**

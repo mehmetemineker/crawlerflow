@@ -1,6 +1,6 @@
 # Architecture
 
-CrawlerFlow separates declarative workflow intent from execution details.
+Crawlerflow separates declarative workflow intent from execution details.
 
 ```text
 YAML workflow

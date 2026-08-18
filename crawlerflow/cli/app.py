@@ -211,7 +211,7 @@ def list_steps() -> None:
 
 @app.command("list-plugins")
 def list_plugins() -> None:
-    """List installed CrawlerFlow plugin entry points without loading them."""
+    """List installed Crawlerflow plugin entry points without loading them."""
 
     plugins = discover_plugins()
     if not plugins:
@@ -229,7 +229,7 @@ def doctor() -> None:
     """Display runtime and package diagnostics."""
 
     table = Table("Check", "Value")
-    table.add_row("CrawlerFlow", __version__)
+    table.add_row("Crawlerflow", __version__)
     table.add_row("Python", sys.version.split()[0])
     table.add_row("Runtime", "OK" if sys.version_info >= (3, 12) else "Python 3.12+ required")
     pydoll_status = "Installed" if importlib.util.find_spec("pydoll") else "Not installed"

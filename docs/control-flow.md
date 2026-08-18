@@ -1,6 +1,6 @@
 # Control flow
 
-CrawlerFlow runs nested steps with the same registry, expression engine, validation, events, and
+Crawlerflow runs nested steps with the same registry, expression engine, validation, events, and
 error handling used by top-level steps.
 
 ## Foreach
@@ -160,7 +160,7 @@ To apply the same text template to multiple values, use grouped overrides:
           path: "output/{{loop.text}}_{{loop.value}}.html"
 ```
 
-For HTTP-only workflows, pass HTML through `content`. In this mode CrawlerFlow reads the options
+For HTTP-only workflows, pass HTML through `content`. In this mode Crawlerflow reads the options
 from the supplied HTML without requiring or modifying a browser:
 
 ```yaml

@@ -26,7 +26,7 @@ process.
 
 ## Operation mapping
 
-| CrawlerFlow operation | Pydoll API |
+| Crawlerflow operation | Pydoll API |
 | --- | --- |
 | `goto` | `Tab.go_to()` |
 | `click`, `fill`, `wait` | `Tab.query()` and `WebElement` methods |

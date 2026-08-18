@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "crawlerflow"
-version = "0.1.0"
+version = "0.2.0"
 description = "Declarative YAML workflow engine for browser automation and web scraping"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -61,6 +61,7 @@ Homepage = "https://github.com/mehmetemineker/crawlerflow"
 Repository = "https://github.com/mehmetemineker/crawlerflow"
 Issues = "https://github.com/mehmetemineker/crawlerflow/issues"
 Documentation = "https://mehmetemineker.github.io/crawlerflow/"
+Changelog = "https://github.com/mehmetemineker/crawlerflow/blob/main/CHANGELOG.md"
 
 [tool.hatch.build.targets.wheel]
 packages = ["crawlerflow"]
@@ -72,6 +73,7 @@ include = [
     "/examples",
     "/tests",
     "/README.md",
+    "/CHANGELOG.md",
     "/LICENSE",
 ]
 

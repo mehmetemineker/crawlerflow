@@ -1,9 +1,9 @@
-"""Public plugin API for extending CrawlerFlow."""
+"""Public plugin API for extending Crawlerflow."""
 
 from __future__ import annotations
 
 from crawlerflow.plugins.base import (
-    CrawlerFlowPlugin,
+    CrawlerflowPlugin,
     PluginLifecycle,
     PluginRegistrationContext,
 )
@@ -20,7 +20,7 @@ from crawlerflow.plugins.manager import (
 )
 
 __all__ = [
-    "CrawlerFlowPlugin",
+    "CrawlerflowPlugin",
     "DuplicatePluginError",
     "InvalidPluginError",
     "PluginConfigurationError",

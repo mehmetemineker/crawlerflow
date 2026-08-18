@@ -19,7 +19,7 @@ class ExpressionError(ValueError):
 
 
 class ExpressionEngine:
-    """Resolve CrawlerFlow expressions without executing workflow code."""
+    """Resolve Crawlerflow expressions without executing workflow code."""
 
     def __init__(self) -> None:
         self._filters: dict[str, ExpressionFilter] = {

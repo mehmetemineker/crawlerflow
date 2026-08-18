@@ -11,7 +11,7 @@ from crawlerflow.engine.context import WorkflowContext
 from crawlerflow.engine.registry import StepRegistry
 from crawlerflow.events import EventBus
 from crawlerflow.expressions import ExpressionEngine
-from crawlerflow.plugins.base import CrawlerFlowPlugin, PluginRegistrationContext
+from crawlerflow.plugins.base import CrawlerflowPlugin, PluginRegistrationContext
 
 ENTRY_POINT_GROUP = "crawlerflow.plugins"
 
@@ -26,7 +26,7 @@ class PluginInfo:
 
 
 def discover_plugins() -> tuple[PluginInfo, ...]:
-    """Return installed CrawlerFlow entry points without loading them."""
+    """Return installed Crawlerflow entry points without loading them."""
 
     plugins = []
     for entry_point in metadata.entry_points(group=ENTRY_POINT_GROUP):
@@ -83,13 +83,13 @@ class PluginManager:
         event_bus: EventBus,
     ) -> None:
         self._context = PluginRegistrationContext(registry, expression_engine, event_bus)
-        self._plugins: dict[str, CrawlerFlowPlugin] = {}
+        self._plugins: dict[str, CrawlerflowPlugin] = {}
 
     @property
     def loaded_names(self) -> tuple[str, ...]:
         return tuple(self._plugins)
 
-    def register(self, plugin: CrawlerFlowPlugin) -> None:
+    def register(self, plugin: CrawlerflowPlugin) -> None:
         name = getattr(plugin, "name", None)
         register = getattr(plugin, "register", None)
         if not isinstance(name, str) or not name or not name.replace("-", "_").isidentifier():
@@ -131,10 +131,10 @@ class PluginManager:
                 ) from error
         return validated
 
-    async def startup(self, context: WorkflowContext) -> tuple[CrawlerFlowPlugin, ...]:
+    async def startup(self, context: WorkflowContext) -> tuple[CrawlerflowPlugin, ...]:
         """Start plugins in registration order and return successfully started plugins."""
 
-        started: list[CrawlerFlowPlugin] = []
+        started: list[CrawlerflowPlugin] = []
         for name, plugin in self._plugins.items():
             try:
                 await self._call_hook(plugin, "startup", context)
@@ -148,7 +148,7 @@ class PluginManager:
     async def shutdown(
         self,
         context: WorkflowContext,
-        started_plugins: tuple[CrawlerFlowPlugin, ...],
+        started_plugins: tuple[CrawlerflowPlugin, ...],
     ) -> None:
         """Stop successfully started plugins in reverse registration order."""
 
@@ -187,7 +187,7 @@ class PluginManager:
 
     async def _shutdown_plugins(
         self,
-        plugins: tuple[CrawlerFlowPlugin, ...] | list[CrawlerFlowPlugin],
+        plugins: tuple[CrawlerflowPlugin, ...] | list[CrawlerflowPlugin],
         context: WorkflowContext,
     ) -> list[tuple[str, str, Exception]]:
         failures = []
@@ -200,7 +200,7 @@ class PluginManager:
 
     @staticmethod
     async def _call_hook(
-        plugin: CrawlerFlowPlugin,
+        plugin: CrawlerflowPlugin,
         hook_name: str,
         context: WorkflowContext,
     ) -> None:

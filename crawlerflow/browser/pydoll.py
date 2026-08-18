@@ -207,7 +207,7 @@ class PydollBrowserAdapter(BrowserAdapter):
                 from pydoll.browser.options import ChromiumOptions
             except ImportError as error:
                 raise PydollNotInstalledError(
-                    "Pydoll is not installed; install CrawlerFlow with the 'browser' extra"
+                    "Pydoll is not installed; install Crawlerflow with the 'browser' extra"
                 ) from error
 
             options = ChromiumOptions()
@@ -236,7 +236,7 @@ class PydollBrowserAdapter(BrowserAdapter):
             from pydoll.protocol.network.events import NetworkEvent
         except ImportError as error:
             raise PydollNotInstalledError(
-                "Pydoll is not installed; install CrawlerFlow with the 'browser' extra"
+                "Pydoll is not installed; install Crawlerflow with the 'browser' extra"
             ) from error
 
         await self._tab.enable_network_events()

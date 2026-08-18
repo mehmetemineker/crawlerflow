@@ -10,7 +10,7 @@ logging:
 steps:
   - save_text:
       path: output/result.txt
-      content: CrawlerFlow
+      content: Crawlerflow
     retry:
       attempts: 3
       delay: 0.25

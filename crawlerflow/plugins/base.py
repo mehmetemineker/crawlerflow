@@ -21,8 +21,8 @@ class PluginRegistrationContext:
     event_bus: EventBus
 
 
-class CrawlerFlowPlugin(Protocol):
-    """Contract implemented by in-process CrawlerFlow plugins."""
+class CrawlerflowPlugin(Protocol):
+    """Contract implemented by in-process Crawlerflow plugins."""
 
     name: str
 

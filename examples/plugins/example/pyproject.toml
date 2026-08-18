@@ -5,10 +5,10 @@ build-backend = "hatchling.build"
 [project]
 name = "crawlerflow-example-plugin"
 version = "0.1.0"
-description = "Example external plugin for CrawlerFlow"
+description = "Example external plugin for Crawlerflow"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = ["crawlerflow>=0.1.0"]
+dependencies = ["crawlerflow>=0.2.0"]
 
 [project.entry-points."crawlerflow.plugins"]
 example = "crawlerflow_example_plugin:ExamplePlugin"

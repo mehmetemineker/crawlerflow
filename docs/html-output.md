@@ -117,7 +117,7 @@ Set `pretty` to format the final HTML with two-space indentation before writing 
 Formatting runs after selector filtering and the empty-content check. It supports full HTML
 documents and element fragments. The option defaults to `false`, so omitted formatting preserves
 the original HTML text. Formatting also works for direct `http_request` output when no browser
-adapter is configured; CrawlerFlow uses its built-in Python formatter in that case.
+adapter is configured; Crawlerflow uses its built-in Python formatter in that case.
 
 ## Enriching links with detail pages
 
@@ -148,7 +148,7 @@ with `wrapper_class` (default `crawlerflow-linked-content`) and a
 `data-crawlerflow-source` attribute containing the detail URL.
 
 Set `detail_wait_selector` to delay extraction until a CSS or XPath selector appears in the
-returned detail HTML. CrawlerFlow reloads that detail URL through the active browser session until
+returned detail HTML. Crawlerflow reloads that detail URL through the active browser session until
 the selector appears or `timeout` seconds pass. The selector is optional and `timeout` defaults to
 30 seconds.
 

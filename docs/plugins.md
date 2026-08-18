@@ -64,7 +64,7 @@ plugins:
       timeout: 20
 ```
 
-A plugin opts into settings by exposing a Pydantic `settings_model`. CrawlerFlow validates settings
+A plugin opts into settings by exposing a Pydantic `settings_model`. Crawlerflow validates settings
 while loading the workflow and stores the resulting model instance in
 `context.plugin_settings[plugin_name]`. Non-empty settings are rejected when a plugin does not
 declare a model. Plugin names must remain unique within one workflow.
@@ -109,7 +109,7 @@ steps:
   - custom_step: {}
 ```
 
-CrawlerFlow rejects missing plugins, duplicate plugin names, and entry points whose loaded plugin
+Crawlerflow rejects missing plugins, duplicate plugin names, and entry points whose loaded plugin
 name differs from the configured entry-point name.
 
 Discover installed entry points without importing or activating plugin code:
