@@ -41,12 +41,22 @@ plugins:
       country_codes: [US, DE]
       valid_only: true
       page_size: 100
+      proxy_retry:
+        enabled: true
+        attempts_per_proxy: 3
+        max_proxies: 5
+        delay: 1
 ```
 
 Use `mode: backbone` for Webshare backbone connections. Webshare's list API is paginated; the
 plugin reads all pages before choosing a proxy. A single proxy is selected during plugin startup,
 so subsequent navigation, browser requests, and direct HTTP requests in that workflow retain the
 same proxy.
+
+When `proxy_retry.enabled` is true, the CapSolver `capsolver_solve` step retries a proxy
+`attempts_per_proxy` times. If the error is identified as a proxy connection error, the plugin
+selects another unused proxy and repeats the attempts, up to `max_proxies` total proxies including
+the first one. `delay` is applied between attempts and proxy changes. The default is disabled.
 
 The plugin uses Webshare's documented `GET /api/v2/proxy/list/` endpoint and the proxy object's
 `proxy_address`, `port`, `username`, `password`, and `valid` fields. Proxy credentials are kept in

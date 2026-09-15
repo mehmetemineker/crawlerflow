@@ -26,6 +26,17 @@ class WebshareConfigurationError(ValueError):
     """Raised when the Webshare plugin configuration is invalid."""
 
 
+class WebshareProxyRetrySettings(BaseModel):
+    """Optional proxy rotation policy used by proxy-aware integrations."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = False
+    attempts_per_proxy: int = Field(default=1, ge=1, le=20)
+    max_proxies: int = Field(default=1, ge=1, le=100)
+    delay: float = Field(default=0, ge=0)
+
+
 @dataclass(slots=True, frozen=True)
 class WebshareProxy:
     """A proxy returned by Webshare, including credentials for internal use."""
@@ -108,6 +119,7 @@ class WebshareSettings(BaseModel):
     page_size: int = Field(default=100, gt=0, le=1000)
     valid_only: bool = True
     timeout: float = Field(default=30, gt=0)
+    proxy_retry: WebshareProxyRetrySettings = Field(default_factory=WebshareProxyRetrySettings)
 
     @field_validator("country_codes", mode="before")
     @classmethod
@@ -258,6 +270,104 @@ class WebshareClient:
         return payload
 
 
+class WebshareProxySession:
+    """Manage one stable proxy and optional rotation for a workflow run."""
+
+    def __init__(
+        self,
+        client: WebshareClient,
+        proxies: list[WebshareProxy],
+        *,
+        retry: WebshareProxyRetrySettings,
+    ) -> None:
+        if not proxies:
+            raise WebshareError("Webshare returned no usable proxies")
+        self.client = client
+        self._available = list(proxies)
+        self.retry = retry
+        self.proxy: WebshareProxy | None = None
+        self._selected_count = 0
+        self._info_outputs: dict[str, bool] = {}
+
+    @property
+    def retry_enabled(self) -> bool:
+        return self.retry.enabled
+
+    @property
+    def attempts_per_proxy(self) -> int:
+        return self.retry.attempts_per_proxy
+
+    @property
+    def max_proxies(self) -> int:
+        return self.retry.max_proxies
+
+    @property
+    def current_proxy(self) -> WebshareProxy:
+        if self.proxy is None:
+            raise WebshareError("Webshare proxy session has not selected a proxy")
+        return self.proxy
+
+    def prepare_capsolver_task(self, task: Mapping[str, Any]) -> dict[str, Any]:
+        """Replace a task's proxy with the currently selected proxy."""
+
+        prepared = dict(task)
+        if "proxy" in prepared:
+            prepared["proxy"] = self.current_proxy.url
+        return prepared
+
+    async def select_initial(self, context: WorkflowContext) -> WebshareProxy:
+        return await self._select_proxy(context)
+
+    async def switch_proxy(self, context: WorkflowContext) -> bool:
+        """Switch to an unused proxy if the configured proxy budget allows it."""
+
+        if not self.retry_enabled:
+            return False
+        if self._selected_count >= self.max_proxies or not self._available:
+            return False
+        await self._select_proxy(context)
+        return True
+
+    def register_info_output(self, name: str, *, include_credentials: bool) -> None:
+        self._info_outputs[name] = include_credentials
+
+    async def _select_proxy(self, context: WorkflowContext) -> WebshareProxy:
+        if not self._available:
+            raise WebshareError("Webshare has no unused proxies remaining")
+        proxy = secrets.SystemRandom().choice(self._available)
+        self._available.remove(proxy)
+        previous_proxy = self.proxy
+        self.proxy = proxy
+        self._selected_count += 1
+        try:
+            await _configure_context_proxy(context, proxy.url)
+        except Exception:
+            context.proxy_url = previous_proxy.url if previous_proxy is not None else None
+            self.proxy = previous_proxy
+            self._selected_count -= 1
+            self._available.append(proxy)
+            raise
+        context.storage["webshare_proxy"] = proxy
+        for name, include_credentials in self._info_outputs.items():
+            context.outputs[name] = proxy.public_dict(include_credentials=include_credentials)
+        return proxy
+
+
+async def _configure_context_proxy(context: WorkflowContext, proxy_url: str) -> None:
+    context.proxy_url = proxy_url
+    if context.browser is None:
+        return
+    configure_proxy = getattr(context.browser, "configure_proxy", None)
+    if not callable(configure_proxy):
+        raise WebshareError(
+            "Browser adapter does not support proxy configuration: "
+            f"{type(context.browser).__name__}"
+        )
+    result = configure_proxy(proxy_url)
+    if isawaitable(result):
+        await result
+
+
 class WebshareProxyInfoConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -274,11 +384,17 @@ class WebshareProxyInfoStep(BaseStep[WebshareProxyInfoConfig]):
             raise WebshareError("Webshare proxy has not been selected")
         result = proxy.public_dict(include_credentials=self.config.include_credentials)
         context.outputs[self.config.save_as] = result
+        session = context.storage.get("webshare_proxy_session")
+        if isinstance(session, WebshareProxySession):
+            session.register_info_output(
+                self.config.save_as,
+                include_credentials=self.config.include_credentials,
+            )
         return result
 
 
 class WebsharePlugin:
-    """Select one Webshare proxy at workflow startup and keep it for the run."""
+    """Select one Webshare proxy at startup and optionally rotate on proxy errors."""
 
     name = "webshare"
     settings_model = WebshareSettings
@@ -303,18 +419,14 @@ class WebsharePlugin:
             valid_only=settings.valid_only,
         )
         try:
-            proxy = await client.random_proxy()
-            context.proxy_url = proxy.url
-            if context.browser is not None:
-                configure_proxy = getattr(context.browser, "configure_proxy", None)
-                if not callable(configure_proxy):
-                    raise WebshareError(
-                        "Browser adapter does not support proxy configuration: "
-                        f"{type(context.browser).__name__}"
-                    )
-                result = configure_proxy(proxy.url)
-                if isawaitable(result):
-                    await result
+            if settings.proxy_retry.enabled:
+                proxies = await client.list_proxies()
+                session = WebshareProxySession(client, proxies, retry=settings.proxy_retry)
+                proxy = await session.select_initial(context)
+                context.storage["webshare_proxy_session"] = session
+            else:
+                proxy = await client.random_proxy()
+                await _configure_context_proxy(context, proxy.url)
         except Exception:
             await client.close()
             raise
@@ -324,6 +436,7 @@ class WebsharePlugin:
     async def shutdown(self, context: WorkflowContext) -> None:
         client = context.storage.pop("webshare_client", None)
         context.storage.pop("webshare_proxy", None)
+        context.storage.pop("webshare_proxy_session", None)
         context.proxy_url = None
         if isinstance(client, WebshareClient):
             await client.close()
@@ -335,5 +448,7 @@ __all__ = [
     "WebshareError",
     "WebsharePlugin",
     "WebshareProxy",
+    "WebshareProxyRetrySettings",
+    "WebshareProxySession",
     "WebshareSettings",
 ]

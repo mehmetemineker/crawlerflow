@@ -19,6 +19,11 @@ plugins:
       mode: direct
       authentication_method: username
       valid_only: true
+      proxy_retry:
+        enabled: true
+        attempts_per_proxy: 3
+        max_proxies: 5
+        delay: 1
   - name: capsolver
 
 variables:
@@ -33,11 +38,6 @@ steps:
       save_as: selected_proxy
       include_credentials: true
 
-  # Open the challenge through the same proxy and user-agent that CapSolver
-  # will use. This also establishes the target domain before setting cookies.
-  - goto:
-      url: "{{target_url}}"
-
   - capsolver_solve:
       task:
         type: AntiCloudflareTask
@@ -45,6 +45,11 @@ steps:
         proxy: "{{selected_proxy.capsolver_proxy}}"
         userAgent: "{{user_agent}}"
       save_as: cloudflare_result
+
+  # Open the target after solving. This keeps proxy rotation possible before
+  # Pydoll starts the browser, while also establishing the target domain.
+  - goto:
+      url: "{{target_url}}"
 
   # CapSolver returns the clearance cookie in solution.cookies.
   - set_cookies:

@@ -138,6 +138,10 @@ plugins:
       mode: direct
       country_codes: [US]
       valid_only: true
+      proxy_retry:
+        enabled: true
+        attempts_per_proxy: 3
+        max_proxies: 5
 ```
 
 See the complete example in

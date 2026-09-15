@@ -33,8 +33,8 @@ def test_capsolver_webshare_example_workflow_validates(monkeypatch: pytest.Monke
     assert cloudflare_document.workflow.name == "cloudflare-challenge-example"
     assert [step.name for step in cloudflare_document.steps] == [
         "webshare_proxy_info",
-        "goto",
         "capsolver_solve",
+        "goto",
         "set_cookies",
         "goto",
         "evaluate",
@@ -51,5 +51,5 @@ def test_capsolver_webshare_example_workflow_validates(monkeypatch: pytest.Monke
         "http_request",
         "capsolver_solve",
         "http_request",
-        "save_json",
+        "save_html",
     ]

@@ -276,6 +276,83 @@ def _client(context: WorkflowContext) -> CapSolverClient:
     return client
 
 
+def _is_proxy_error(error: CapSolverError) -> bool:
+    """Return whether CapSolver reported a failure likely caused by the proxy."""
+
+    details = " ".join(
+        str(value)
+        for value in (
+            error,
+            error.error_code,
+            error.response.get("errorDescription"),
+            error.response.get("errorCode"),
+        )
+        if value is not None
+    ).lower()
+    return any(
+        marker in details
+        for marker in (
+            "custom proxy connect",
+            "proxy connect",
+            "proxy connection",
+            "proxy timeout",
+            "proxy authentication",
+            "proxy error",
+            "407",
+        )
+    )
+
+
+async def _solve_with_optional_proxy_retry(
+    context: WorkflowContext,
+    task: Mapping[str, Any],
+    *,
+    app_id: str | None,
+    callback_url: str | None,
+) -> dict[str, Any]:
+    """Solve while rotating Webshare proxies only after proxy failures."""
+
+    client = _client(context)
+    session = context.storage.get("webshare_proxy_session")
+    if session is None or not getattr(session, "retry_enabled", False):
+        return await client.solve(task, app_id=app_id, callback_url=callback_url)
+
+    attempts_per_proxy = int(getattr(session, "attempts_per_proxy", 1))
+    max_proxies = int(getattr(session, "max_proxies", 1))
+    last_error: CapSolverError | None = None
+    for proxy_index in range(max_proxies):
+        for attempt in range(attempts_per_proxy):
+            prepare_task = getattr(session, "prepare_capsolver_task", None)
+            prepared_task = prepare_task(task) if callable(prepare_task) else dict(task)
+            try:
+                return await client.solve(
+                    prepared_task,
+                    app_id=app_id,
+                    callback_url=callback_url,
+                )
+            except CapSolverError as error:
+                if not _is_proxy_error(error):
+                    raise
+                last_error = error
+                if attempt + 1 < attempts_per_proxy:
+                    delay = float(getattr(getattr(session, "retry", None), "delay", 0))
+                    if delay:
+                        await asyncio.sleep(delay)
+
+        if proxy_index + 1 >= max_proxies:
+            break
+        switch_proxy = getattr(session, "switch_proxy", None)
+        if not callable(switch_proxy) or not await switch_proxy(context):
+            break
+        delay = float(getattr(getattr(session, "retry", None), "delay", 0))
+        if delay:
+            await asyncio.sleep(delay)
+
+    if last_error is not None:
+        raise last_error
+    raise CapSolverConfigurationError("CapSolver proxy retry did not execute any attempts")
+
+
 class _TaskStepConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -320,7 +397,8 @@ class CapSolverSolveStep(BaseStep[_TaskStepConfig]):
 
     async def execute(self, context: WorkflowContext) -> dict[str, Any]:
         settings = _settings(context)
-        result = await _client(context).solve(
+        result = await _solve_with_optional_proxy_retry(
+            context,
             self.config.task,
             app_id=self.config.app_id or settings.app_id,
             callback_url=self.config.callback_url,

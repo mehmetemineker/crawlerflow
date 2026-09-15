@@ -12,6 +12,11 @@ plugins:
       mode: direct
       authentication_method: username
       valid_only: true
+      proxy_retry:
+        enabled: true
+        attempts_per_proxy: 3
+        max_proxies: 5
+        delay: 1
   - name: capsolver
 
 variables:
