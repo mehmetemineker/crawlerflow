@@ -939,7 +939,10 @@ class EnrichHtmlLinksHttpStep(BaseStep[EnrichHtmlLinksHttpConfig]):
         cache: dict[str, str | None] = {}
         insertions: dict[int, list[tuple[str, str]]] = {}
         last_finished_at: float | None = None
-        async with httpx.AsyncClient(timeout=self.config.timeout) as client:
+        async with httpx.AsyncClient(
+            timeout=self.config.timeout,
+            proxy=context.proxy_url,
+        ) as client:
             for target_index, url in collector.links:
                 if url not in cache:
                     if last_finished_at is not None and self.config.delay > 0:
@@ -1092,6 +1095,7 @@ class ResolveLocationUrlStep(BaseStep[ResolveLocationUrlConfig]):
                 timeout=self.config.timeout,
                 follow_redirects=True,
                 max_redirects=self.config.max_redirects,
+                proxy=context.proxy_url,
             ) as client:
                 response = await client.request(
                     "GET",
@@ -1307,6 +1311,7 @@ class EnrichJsonMapLocationsStep(BaseStep[EnrichJsonMapLocationsConfig]):
             timeout=self.config.timeout,
             follow_redirects=True,
             max_redirects=self.config.max_redirects,
+            proxy=context.proxy_url,
         ) as client:
 
             async def resolve(url: str) -> tuple[str, dict[str, Any] | None]:
@@ -1435,7 +1440,10 @@ class HttpRequestStep(BaseStep[HttpRequestConfig]):
             {"transport": "http", "method": method, "url": self.config.url},
         )
         try:
-            async with httpx.AsyncClient(timeout=self.config.timeout) as client:
+            async with httpx.AsyncClient(
+                timeout=self.config.timeout,
+                proxy=context.proxy_url,
+            ) as client:
                 response = await client.request(
                     method,
                     self.config.url,

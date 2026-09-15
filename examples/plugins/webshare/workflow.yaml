@@ -1,0 +1,28 @@
+version: 1
+
+workflow:
+  name: webshare-proxy-example
+  description: Run an authorized HTTP workflow through one randomly selected Webshare proxy
+
+plugins:
+  - name: webshare
+    settings:
+      mode: direct
+      authentication_method: username
+      valid_only: true
+      country_codes: [US]
+
+steps:
+  - webshare_proxy_info:
+      save_as: selected_proxy
+
+  - log:
+      message: "Selected proxy {{selected_proxy.host}}:{{selected_proxy.port}}"
+
+  - http_request:
+      url: https://example.com/
+      save_as: response
+
+  - save_json:
+      path: output/webshare-response.json
+      data: "{{response}}"

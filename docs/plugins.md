@@ -120,6 +120,29 @@ python -m crawlerflow list-plugins
 
 The command displays each plugin name, import target, and owning Python distribution.
 
+## Webshare proxy plugin
+
+The repository also contains a separately installable `crawlerflow-webshare` plugin. It reads the
+Webshare proxy list, selects one valid proxy randomly during workflow startup, and keeps that proxy
+for the workflow's browser and direct HTTP requests:
+
+```bash
+python -m pip install -e . -e examples/plugins/webshare
+export WEBSHARE_API_KEY="your-webshare-api-key"
+```
+
+```yaml
+plugins:
+  - name: webshare
+    settings:
+      mode: direct
+      country_codes: [US]
+      valid_only: true
+```
+
+See the complete example in
+[`examples/plugins/webshare/workflow.yaml`](https://github.com/mehmetemineker/crawlerflow/blob/main/examples/plugins/webshare/workflow.yaml).
+
 ## Example package
 
 `examples/plugins/example` is a separately installable reference package. It registers a custom

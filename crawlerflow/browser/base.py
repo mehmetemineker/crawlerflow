@@ -66,6 +66,13 @@ class BrowserAdapter(ABC):
     @abstractmethod
     async def screenshot(self, path: Path) -> Path: ...
 
+    def configure_proxy(self, proxy_url: str) -> None:
+        """Configure a proxy before the browser session starts, if supported."""
+
+        raise RuntimeError(
+            f"Browser adapter {type(self).__name__} does not support proxy configuration"
+        )
+
     async def close(self) -> None:
         """Release browser resources when an adapter owns them."""
 

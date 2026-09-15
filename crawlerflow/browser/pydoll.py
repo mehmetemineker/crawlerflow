@@ -6,11 +6,14 @@ import asyncio
 import json
 import logging
 import math
+import shutil
+import tempfile
 import time
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
+from urllib.parse import unquote, urlsplit
 
 from crawlerflow.browser.base import BrowserAdapter, BrowserResponse
 
@@ -40,6 +43,7 @@ class PydollBrowserConfig:
     default_wait_timeout: float = 10
     network_idle_period: float = 0.5
     download_directory: Path | None = None
+    proxy_url: str | None = None
 
 
 class PydollBrowserAdapter(BrowserAdapter):
@@ -61,6 +65,7 @@ class PydollBrowserAdapter(BrowserAdapter):
         self._network_callback_ids: list[int] = []
         self._inflight_requests: set[str] = set()
         self._last_network_activity = time.monotonic()
+        self._proxy_extension_dir: Path | None = None
 
     async def goto(self, url: str) -> None:
         tab = await self._get_tab()
@@ -174,6 +179,18 @@ class PydollBrowserAdapter(BrowserAdapter):
         await tab.take_screenshot(path)
         return path
 
+    def configure_proxy(self, proxy_url: str) -> None:
+        """Set an HTTP(S)/SOCKS5 proxy before Chromium is launched."""
+
+        if self._browser is not None or self._tab is not None:
+            raise PydollAdapterError("Proxy must be configured before the browser starts")
+        parsed = urlsplit(proxy_url)
+        if parsed.scheme not in {"http", "https", "socks5"} or not parsed.hostname:
+            raise PydollAdapterError("Proxy URL must include an HTTP(S) or SOCKS5 host")
+        if parsed.port is None or not 1 <= parsed.port <= 65535:
+            raise PydollAdapterError("Proxy URL must include a valid port")
+        self.config = replace(self.config, proxy_url=proxy_url)
+
     async def close(self) -> None:
         if self._tab is not None:
             for callback_id in self._network_callback_ids:
@@ -191,6 +208,9 @@ class PydollBrowserAdapter(BrowserAdapter):
         self._browser = None
         self._network_tracking_enabled = False
         self._inflight_requests.clear()
+        if self._proxy_extension_dir is not None:
+            shutil.rmtree(self._proxy_extension_dir, ignore_errors=True)
+            self._proxy_extension_dir = None
 
     async def _get_tab(self) -> Any:
         if self._tab is None:
@@ -220,9 +240,50 @@ class PydollBrowserAdapter(BrowserAdapter):
                 options.set_default_download_directory(str(self.config.download_directory))
             for argument in self.config.arguments:
                 options.add_argument(argument)
+            if self.config.proxy_url is not None:
+                self._configure_proxy_options(options, self.config.proxy_url)
 
             self._browser = Chrome(options=options)
         self._tab = await self._browser.start()
+
+    def _configure_proxy_options(self, options: Any, proxy_url: str) -> None:
+        parsed = urlsplit(proxy_url)
+        host = parsed.hostname
+        port = parsed.port
+        if host is None or port is None:
+            raise PydollAdapterError("Proxy URL must include a host and port")
+        options.add_argument(f"--proxy-server={parsed.scheme}://{host}:{port}")
+        if parsed.username is not None or parsed.password is not None:
+            if parsed.username is None or parsed.password is None:
+                raise PydollAdapterError("Proxy URL must include both username and password")
+            self._proxy_extension_dir = self._create_proxy_auth_extension(
+                unquote(parsed.username),
+                unquote(parsed.password),
+            )
+            options.add_argument(f"--load-extension={self._proxy_extension_dir}")
+
+    @staticmethod
+    def _create_proxy_auth_extension(username: str, password: str) -> Path:
+        extension_dir = Path(tempfile.mkdtemp(prefix="crawlerflow-proxy-auth-"))
+        manifest = {
+            "manifest_version": 2,
+            "name": "Crawlerflow proxy authentication",
+            "version": "1.0",
+            "permissions": ["webRequest", "webRequestBlocking", "<all_urls>"],
+            "background": {"scripts": ["background.js"]},
+        }
+        background = (
+            "chrome.webRequest.onAuthRequired.addListener("
+            "function(details) { return {authCredentials: {username: "
+            f"{json.dumps(username)}, password: {json.dumps(password)}}}; }}, "
+            "{urls: ['<all_urls>']}, ['blocking']);"
+        )
+        (extension_dir / "manifest.json").write_text(
+            json.dumps(manifest),
+            encoding="utf-8",
+        )
+        (extension_dir / "background.js").write_text(background, encoding="utf-8")
+        return extension_dir
 
     async def _query(self, selector: str, timeout_seconds: float | None = None) -> Any:
         tab = await self._get_tab()

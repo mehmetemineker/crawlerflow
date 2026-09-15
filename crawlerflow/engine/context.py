@@ -22,6 +22,7 @@ class WorkflowContext:
     workflow_name: str
     base_path: Path
     browser: BrowserAdapter | None = None
+    proxy_url: str | None = None
     variables: dict[str, Any] = field(default_factory=dict)
     outputs: dict[str, Any] = field(default_factory=dict)
     cookies: dict[str, str] = field(default_factory=dict)
@@ -51,6 +52,7 @@ class WorkflowContext:
             workflow_name=self.workflow_name,
             base_path=self.base_path,
             browser=self.browser,
+            proxy_url=self.proxy_url,
             variables=dict(self.variables),
             outputs=dict(self.outputs),
             cookies=dict(self.cookies),
