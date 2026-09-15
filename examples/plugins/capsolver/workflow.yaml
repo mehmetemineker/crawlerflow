@@ -1,0 +1,28 @@
+version: 1
+
+workflow:
+  name: capsolver-recaptcha-example
+  description: Solve an authorized reCAPTCHA v3 task with the CapSolver plugin
+
+plugins:
+  - capsolver
+
+variables:
+  target_url: https://example.com/login
+  website_key: replace-with-authorized-site-key
+  captcha_action: login
+
+steps:
+  # The task object is passed through to CapSolver unchanged. Other supported
+  # task types can be used by changing this object and its type.
+  - capsolver_solve:
+      task:
+        type: ReCaptchaV3TaskProxyLess
+        websiteURL: "{{target_url}}"
+        websiteKey: "{{website_key}}"
+        pageAction: "{{captcha_action}}"
+      save_as: captcha_result
+
+  - save_json:
+      path: output/capsolver-result.json
+      data: "{{captcha_result}}"
