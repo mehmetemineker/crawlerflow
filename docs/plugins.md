@@ -143,6 +143,29 @@ plugins:
 See the complete example in
 [`examples/plugins/webshare/workflow.yaml`](https://github.com/mehmetemineker/crawlerflow/blob/main/examples/plugins/webshare/workflow.yaml).
 
+For an HTTP-only variant without Pydoll, use
+[`cloudflare-challenge-http.yaml`](https://github.com/mehmetemineker/crawlerflow/blob/main/examples/plugins/capsolver-webshare/cloudflare-challenge-http.yaml).
+It fetches the challenge HTML and sends the returned `cf_clearance` cookie with a second direct
+HTTP request through the same proxy.
+
+## Cloudflare Challenge example
+
+The combined CapSolver and Webshare example uses CapSolver's `AntiCloudflareTask`. It opens the
+target with a fixed user agent, passes the same selected Webshare proxy to CapSolver, applies the
+returned clearance cookies, and reloads the target page:
+
+```bash
+python -m pip install -e . -e examples/plugins/capsolver -e examples/plugins/webshare
+export CAPSOLVER_API_KEY="your-capsolver-api-key"
+export WEBSHARE_API_KEY="your-webshare-api-key"
+python -m crawlerflow run examples/plugins/capsolver-webshare/cloudflare-challenge.yaml
+```
+
+Replace the authorized target URL before running. Because the example enables
+`include_credentials: true` to pass the proxy to CapSolver, protect the generated result file;
+it can contain a `cf_clearance` cookie. See
+[`cloudflare-challenge.yaml`](https://github.com/mehmetemineker/crawlerflow/blob/main/examples/plugins/capsolver-webshare/cloudflare-challenge.yaml).
+
 ## Example package
 
 `examples/plugins/example` is a separately installable reference package. It registers a custom

@@ -26,6 +26,10 @@ The complete example is available at [`workflow.yaml`](workflow.yaml). The selec
 by the Pydoll browser and by Crawlerflow's direct HTTP steps. `webshare_proxy_info` exposes only
 non-secret proxy metadata as workflow output.
 
+For integrations such as CapSolver's Cloudflare Challenge task, set
+`include_credentials: true` explicitly. The step then adds a `capsolver_proxy` URL
+to the output; treat that output as secret and do not persist it in logs or files.
+
 ## Settings
 
 ```yaml

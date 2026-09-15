@@ -1,0 +1,54 @@
+version: 1
+
+workflow:
+  name: capsolver-webshare-example
+  description: Solve an authorized CAPTCHA and submit the result through one Webshare proxy
+
+plugins:
+  - name: webshare
+    settings:
+      mode: direct
+      authentication_method: username
+      valid_only: true
+  - name: capsolver
+
+variables:
+  # Replace these values with an authorized target and its site key.
+  target_url: https://example.com/login
+  website_key: replace-with-authorized-site-key
+  captcha_action: login
+  verification_endpoint: https://httpbin.org/anything
+
+steps:
+  # Webshare selects one usable proxy at workflow startup. All direct HTTP
+  # steps below reuse that same proxy automatically.
+  - webshare_proxy_info:
+      save_as: selected_proxy
+
+  - capsolver_solve:
+      task:
+        type: ReCaptchaV3TaskProxyLess
+        websiteURL: "{{target_url}}"
+        websiteKey: "{{website_key}}"
+        pageAction: "{{captcha_action}}"
+      save_as: captcha_result
+
+  # Replace verification_endpoint with the authorized endpoint that accepts
+  # the token. This request is sent through the selected Webshare proxy.
+  - http_request:
+      method: POST
+      url: "{{verification_endpoint}}"
+      headers:
+        Content-Type: application/json
+      json_body:
+        target_url: "{{target_url}}"
+        captcha_token: "{{captcha_result.solution.gRecaptchaResponse}}"
+        proxy_id: "{{selected_proxy.id}}"
+      save_as: verification_response
+
+  - save_json:
+      path: output/capsolver-webshare-result.json
+      data:
+        proxy: "{{selected_proxy}}"
+        captcha: "{{captcha_result}}"
+        verification: "{{verification_response}}"

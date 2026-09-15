@@ -95,6 +95,26 @@ def test_webshare_plugin_registers_proxy_info_step(monkeypatch: pytest.MonkeyPat
     assert tuple(registry.names()) == ("webshare_proxy_info",)
 
 
+def test_webshare_proxy_info_can_explicitly_expose_capsolver_proxy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = load_webshare_plugin(monkeypatch)
+
+    proxy = module.WebshareProxy(
+        proxy_id="proxy-1",
+        host="192.0.2.1",
+        port=8000,
+        username="user",
+        password="pass",
+    )
+
+    assert proxy.public_dict()["host"] == "192.0.2.1"
+    assert "capsolver_proxy" not in proxy.public_dict()
+    assert proxy.public_dict(include_credentials=True)["capsolver_proxy"] == (
+        "http://user:pass@192.0.2.1:8000"
+    )
+
+
 def test_webshare_example_workflow_validates(monkeypatch: pytest.MonkeyPatch) -> None:
     module = load_webshare_plugin(monkeypatch)
 

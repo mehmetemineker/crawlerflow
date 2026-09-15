@@ -1,0 +1,69 @@
+version: 1
+
+workflow:
+  name: cloudflare-challenge-example
+  description: Solve an authorized Cloudflare Challenge with a stable Webshare proxy
+
+browser:
+  engine: pydoll
+  headless: true
+  arguments:
+    - >-
+      --user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64)
+      AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36
+
+plugins:
+  - name: webshare
+    settings:
+      # A single selected proxy is reused for the browser and the CapSolver task.
+      mode: direct
+      authentication_method: username
+      valid_only: true
+  - name: capsolver
+
+variables:
+  # Use only a website where you are authorized to automate the challenge.
+  target_url: https://www.your-authorized-site.example/
+  user_agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36
+
+steps:
+  # Credentials are needed to pass the Webshare proxy to CapSolver. Do not
+  # write selected_proxy to logs or files when this option is enabled.
+  - webshare_proxy_info:
+      save_as: selected_proxy
+      include_credentials: true
+
+  # Open the challenge through the same proxy and user-agent that CapSolver
+  # will use. This also establishes the target domain before setting cookies.
+  - goto:
+      url: "{{target_url}}"
+
+  - capsolver_solve:
+      task:
+        type: AntiCloudflareTask
+        websiteURL: "{{target_url}}"
+        proxy: "{{selected_proxy.capsolver_proxy}}"
+        userAgent: "{{user_agent}}"
+      save_as: cloudflare_result
+
+  # CapSolver returns the clearance cookie in solution.cookies.
+  - set_cookies:
+      cookies: "{{cloudflare_result.solution.cookies}}"
+
+  - goto:
+      url: "{{target_url}}"
+
+  - evaluate:
+      script: return document.title;
+      save_as: page_title
+
+  # Protect this file: the solution can contain the cf_clearance cookie.
+  - save_json:
+      path: output/cloudflare-challenge-result.json
+      data:
+        proxy:
+          id: "{{selected_proxy.id}}"
+          host: "{{selected_proxy.host}}"
+          port: "{{selected_proxy.port}}"
+        cloudflare_solution: "{{cloudflare_result.solution}}"
+        page_title: "{{page_title}}"

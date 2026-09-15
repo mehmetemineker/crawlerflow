@@ -48,8 +48,8 @@ class WebshareProxy:
             credentials = f"{quote(self.username, safe='')}:{quote(self.password, safe='')}@"
         return f"http://{credentials}{self.host}:{self.port}"
 
-    def public_dict(self) -> dict[str, Any]:
-        return {
+    def public_dict(self, *, include_credentials: bool = False) -> dict[str, Any]:
+        result = {
             "id": self.proxy_id,
             "host": self.host,
             "port": self.port,
@@ -57,6 +57,9 @@ class WebshareProxy:
             "country_code": self.country_code,
             "city_name": self.city_name,
         }
+        if include_credentials:
+            result["capsolver_proxy"] = self.url
+        return result
 
     @classmethod
     def from_api(
@@ -259,6 +262,7 @@ class WebshareProxyInfoConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     save_as: str = Field(default="webshare_proxy", pattern=r"^[A-Za-z_]\w*$")
+    include_credentials: bool = False
 
 
 class WebshareProxyInfoStep(BaseStep[WebshareProxyInfoConfig]):
@@ -268,7 +272,7 @@ class WebshareProxyInfoStep(BaseStep[WebshareProxyInfoConfig]):
         proxy = context.storage.get("webshare_proxy")
         if not isinstance(proxy, WebshareProxy):
             raise WebshareError("Webshare proxy has not been selected")
-        result = proxy.public_dict()
+        result = proxy.public_dict(include_credentials=self.config.include_credentials)
         context.outputs[self.config.save_as] = result
         return result
 
