@@ -51,5 +51,5 @@ def test_capsolver_webshare_example_workflow_validates(monkeypatch: pytest.Monke
         "http_request",
         "capsolver_solve",
         "http_request",
-        "save_html",
+        "save_json",
     ]
