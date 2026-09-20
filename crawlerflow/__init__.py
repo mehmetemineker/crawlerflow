@@ -5,5 +5,5 @@ from __future__ import annotations
 from crawlerflow.engine.runner import WorkflowRunner
 
 __all__ = ["WorkflowRunner"]
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
