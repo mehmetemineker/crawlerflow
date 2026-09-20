@@ -312,6 +312,53 @@ steps:
 
 
 @pytest.mark.asyncio
+async def test_foreach_select_can_prefix_option_text_with_optgroup_label(
+    tmp_path: Path,
+) -> None:
+    workflow_path = tmp_path / "select-groups.yaml"
+    workflow_path.write_text(
+        """
+version: 1
+workflow:
+  name: select-groups
+steps:
+  - foreach_select:
+      content: >-
+        <select id="bolge">
+        <option value="all">Tüm Nöbetçi Eczaneler</option>
+        <optgroup label="GAZİANTEP">
+        <option value="1">ŞAHİNBEY</option>
+        <option value="2">ŞEHİTKAMİL</option>
+        </optgroup>
+        <optgroup label="KİLİS">
+        <option value="20" selected>KİLİS MERKEZ</option>
+        </optgroup>
+        </select>
+      selector: "#bolge"
+      include_empty: false
+      include_group: true
+      steps:
+        - save_text:
+            path: "output/{{loop.value}}.txt"
+            content: "{{loop.text}}|{{loop.group}}|{{loop.original_text}}"
+""".strip(),
+        encoding="utf-8",
+    )
+
+    await WorkflowRunner().run(workflow_path)
+
+    assert (tmp_path / "output" / "1.txt").read_text(encoding="utf-8") == (
+        "GAZİANTEP - ŞAHİNBEY|GAZİANTEP|ŞAHİNBEY"
+    )
+    assert (tmp_path / "output" / "2.txt").read_text(encoding="utf-8") == (
+        "GAZİANTEP - ŞEHİTKAMİL|GAZİANTEP|ŞEHİTKAMİL"
+    )
+    assert (tmp_path / "output" / "20.txt").read_text(encoding="utf-8") == (
+        "KİLİS - KİLİS MERKEZ|KİLİS|KİLİS MERKEZ"
+    )
+
+
+@pytest.mark.asyncio
 async def test_foreach_select_runs_supplied_html_options_in_parallel(
     tmp_path: Path,
 ) -> None:

@@ -129,6 +129,26 @@ The selected value is available as `loop.<as>` and `loop.value`. Additional meta
 `exclude_values` accepts one value or a list and skips matching option values. Numeric YAML values
 are normalized to strings before comparison. Omitting it preserves the normal select iteration.
 
+To include the surrounding `optgroup` label in the option text, enable `include_group`. The group
+label is exposed separately as `loop.group`, while `loop.group_text` contains the combined text:
+
+```yaml
+- foreach_select:
+    content: "{{page_response.body}}"
+    selector: "#bolge"
+    include_empty: false
+    include_group: true
+    group_separator: " - "
+    steps:
+      - log:
+          message: "{{loop.group_text}}"
+```
+
+For an option such as `ŞAHİNBEY` inside the `GAZİANTEP` group, `loop.text` and `loop.group_text`
+become `GAZİANTEP - ŞAHİNBEY`. Options that are not inside an `optgroup` keep their original text.
+`loop.original_text` remains the option-only text. When `text_overrides` is used, its
+`{original_text}`, `{group}`, and `{value}` placeholders are available.
+
 Use `text_overrides` to replace option text according to its value without changing the value sent
 to forms or requests. The replacement is exposed as `loop.text`; the original option text remains
 available as `loop.original_text`. Use `{original_text}` and `{value}` inside replacements to build

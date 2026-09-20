@@ -252,6 +252,8 @@ class ForeachSelectConfig(LoopConfig):
     content: str | None = None
     include_disabled: bool = False
     include_empty: bool = True
+    include_group: bool = False
+    group_separator: str = " - "
     exclude_values: list[str] = Field(default_factory=list)
     text_overrides: dict[str, str] = Field(default_factory=dict)
     steps: list[StepDefinition]
@@ -313,13 +315,19 @@ class ForeachSelectStep(BaseStep[ForeachSelectConfig]):
         for index, option in enumerate(filtered_options):
             value = str(option.get("value", ""))
             original_text = str(option.get("text", ""))
+            group = " ".join(str(option.get("group", "")).split())
+            grouped_text = (
+                f"{group}{self.config.group_separator}{original_text}"
+                if self.config.include_group and group
+                else original_text
+            )
             text_template = self.config.text_overrides.get(value)
             text = (
-                original_text
+                grouped_text
                 if text_template is None
-                else text_template.replace("{original_text}", original_text).replace(
-                    "{value}", value
-                )
+                else text_template.replace("{original_text}", original_text)
+                .replace("{group}", group)
+                .replace("{value}", value)
             )
             if browser is not None:
                 if self.config.parallel:
@@ -336,6 +344,8 @@ class ForeachSelectStep(BaseStep[ForeachSelectConfig]):
                         "value": value,
                         "text": text,
                         "original_text": original_text,
+                        "group": group,
+                        "group_text": grouped_text,
                         "disabled": bool(option.get("disabled", False)),
                         "selected": bool(option.get("selected", False)),
                         "option_index": int(option.get("index", index)),
@@ -351,6 +361,8 @@ class ForeachSelectStep(BaseStep[ForeachSelectConfig]):
                         "value": value,
                         "text": text,
                         "original_text": original_text,
+                        "group": group,
+                        "group_text": grouped_text,
                         "disabled": bool(option.get("disabled", False)),
                         "selected": bool(option.get("selected", False)),
                         "option_index": int(option.get("index", index)),
@@ -405,7 +417,9 @@ class ForeachSelectStep(BaseStep[ForeachSelectConfig]):
             "throw new Error('Element is not a <select>'); "
             "return Array.from(select.options).map((option, index) => ({ "
             "value: option.value, text: option.text, disabled: option.disabled, "
-            "selected: option.selected, index }));"
+            "selected: option.selected, "
+            "group: option.parentElement?.tagName === 'OPTGROUP' "
+            "? option.parentElement.label : '', index }));"
         )
 
 
@@ -585,6 +599,7 @@ class _HtmlSelectOptionsParser(HTMLParser):
         self._inside_select = False
         self._current_option: dict[str, Any] | None = None
         self._option_text: list[str] = []
+        self._current_group = ""
 
     def handle_starttag(
         self,
@@ -602,6 +617,10 @@ class _HtmlSelectOptionsParser(HTMLParser):
                 self._matched = True
                 self._inside_select = True
             self._candidate_index += 1
+        elif self._inside_select and tag == "optgroup":
+            self._finish_option()
+            attributes = {name.lower(): value for name, value in attrs}
+            self._current_group = " ".join(str(attributes.get("label") or "").split())
         elif self._inside_select and tag == "option":
             self._finish_option()
             attributes = {name.lower(): value for name, value in attrs}
@@ -609,6 +628,7 @@ class _HtmlSelectOptionsParser(HTMLParser):
                 "value": attributes.get("value"),
                 "disabled": "disabled" in attributes,
                 "selected": "selected" in attributes,
+                "group": self._current_group,
             }
             self._option_text = []
         if tag not in self._void_tags:
@@ -626,9 +646,13 @@ class _HtmlSelectOptionsParser(HTMLParser):
     def handle_endtag(self, tag: str) -> None:
         if self._inside_select and tag == "option":
             self._finish_option()
+        if self._inside_select and tag == "optgroup":
+            self._finish_option()
+            self._current_group = ""
         if self._inside_select and tag == "select":
             self._finish_option()
             self._inside_select = False
+            self._current_group = ""
         for index in range(len(self.ancestors) - 1, -1, -1):
             if self.ancestors[index][0] == tag:
                 del self.ancestors[index:]
@@ -653,6 +677,7 @@ class _HtmlSelectOptionsParser(HTMLParser):
             {
                 "value": text if value is None else value,
                 "text": text,
+                "group": self._current_option["group"],
                 "disabled": self._current_option["disabled"],
                 "selected": self._current_option["selected"],
                 "index": len(self.options),
