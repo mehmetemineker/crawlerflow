@@ -137,13 +137,31 @@ class FilterJsonStep(BaseStep[FilterJsonConfig]):
 
     async def execute(self, context: WorkflowContext) -> Any:
         filtered_data = deepcopy(self.config.data)
+        if isinstance(filtered_data, str):
+            try:
+                filtered_data = json.loads(filtered_data)
+            except json.JSONDecodeError as error:
+                raise ValueError(
+                    "filter_json data must be a JSON object or array, not plain text"
+                ) from error
         if self.config.items_path is None:
             result = self._filter_root(context, filtered_data)
         else:
             target = self._lookup(filtered_data, self.config.items_path)
+            if target is self._missing:
+                available = (
+                    ", ".join(sorted(filtered_data))
+                    if isinstance(filtered_data, dict)
+                    else type(filtered_data).__name__
+                )
+                raise ValueError(
+                    f"filter_json items_path was not found: {self.config.items_path}"
+                    f" (root keys/type: {available})"
+                )
             if not isinstance(target, list):
                 raise ValueError(
                     f"filter_json items_path must point to a list: {self.config.items_path}"
+                    f" (resolved type: {type(target).__name__})"
                 )
             self._set_path(
                 filtered_data,
@@ -301,6 +319,233 @@ class ExtractJavascriptArrayStep(BaseStep[ExtractJavascriptArrayConfig]):
                     return index
             index += 1
         return None
+
+
+class ParseJavascriptArrayConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    content: str
+    variable: str = Field(pattern=r"^[A-Za-z_$][A-Za-z0-9_$]*$")
+    fields: list[str] | None = None
+    save_as: str = Field(pattern=r"^[A-Za-z_]\w*$")
+
+    @field_validator("fields")
+    @classmethod
+    def validate_fields(cls, value: list[str] | None) -> list[str] | None:
+        if value is not None and (
+            not value
+            or any(not field.strip() for field in value)
+            or len(set(value)) != len(value)
+        ):
+            raise ValueError("parse_javascript_array fields must be unique and non-empty")
+        return value
+
+
+class _JavascriptLiteralParser:
+    """Parse the JSON-like JavaScript literals used by data arrays safely."""
+
+    def __init__(self, source: str) -> None:
+        self.source = source
+        self.index = 0
+
+    def parse_array(self) -> list[Any]:
+        self._skip_space_and_comments()
+        if self._take() != "[":
+            raise ValueError("parse_javascript_array expected an array literal")
+        values: list[Any] = []
+        self._skip_space_and_comments()
+        if self._peek() == "]":
+            self.index += 1
+            return values
+
+        while True:
+            values.append(self._parse_value())
+            self._skip_space_and_comments()
+            character = self._take()
+            if character == "]":
+                return values
+            if character != ",":
+                raise ValueError(
+                    f"parse_javascript_array expected ',' or ']' at position {self.index - 1}"
+                )
+            self._skip_space_and_comments()
+            if self._peek() == "]":
+                self.index += 1
+                return values
+
+    def _parse_value(self) -> Any:
+        self._skip_space_and_comments()
+        character = self._peek()
+        if character == "[":
+            return self.parse_array()
+        if character == "{":
+            return self._parse_object()
+        if character in {"'", '"', "`"}:
+            return self._parse_string()
+        return self._parse_token()
+
+    def _parse_object(self) -> dict[str, Any]:
+        self._take()
+        result: dict[str, Any] = {}
+        self._skip_space_and_comments()
+        if self._peek() == "}":
+            self.index += 1
+            return result
+
+        while True:
+            self._skip_space_and_comments()
+            if self._peek() in {"'", '"', "`"}:
+                key = self._parse_string()
+            else:
+                key = self._read_until({":", ",", "}"}).strip()
+            if not isinstance(key, str) or not key:
+                raise ValueError("parse_javascript_array object keys must be strings")
+            self._skip_space_and_comments()
+            if self._take() != ":":
+                raise ValueError("parse_javascript_array expected ':' after object key")
+            result[key] = self._parse_value()
+            self._skip_space_and_comments()
+            character = self._take()
+            if character == "}":
+                return result
+            if character != ",":
+                raise ValueError(
+                    f"parse_javascript_array expected ',' or '}}' at position {self.index - 1}"
+                )
+            self._skip_space_and_comments()
+            if self._peek() == "}":
+                self.index += 1
+                return result
+
+    def _parse_string(self) -> str:
+        quote = self._take()
+        characters: list[str] = []
+        while self.index < len(self.source):
+            character = self._take()
+            if character == quote:
+                return "".join(characters)
+            if character != "\\":
+                characters.append(character)
+                continue
+            if self.index >= len(self.source):
+                break
+            escaped = self._take()
+            escapes = {
+                "n": "\n",
+                "r": "\r",
+                "t": "\t",
+                "b": "\b",
+                "f": "\f",
+                "v": "\v",
+                "0": "\0",
+                "\\": "\\",
+                "'": "'",
+                '"': '"',
+                "`": "`",
+                "/": "/",
+            }
+            if escaped in escapes:
+                characters.append(escapes[escaped])
+            elif escaped == "x":
+                characters.append(self._read_hex(2))
+            elif escaped == "u":
+                characters.append(self._read_hex(4))
+            elif escaped in "\r\n":
+                if escaped == "\r" and self._peek() == "\n":
+                    self.index += 1
+            else:
+                characters.append(escaped)
+        raise ValueError("parse_javascript_array found an unterminated string")
+
+    def _parse_token(self) -> Any:
+        token = self._read_until({",", "]", "}"}).strip()
+        if token == "true":
+            return True
+        if token == "false":
+            return False
+        if token in {"null", "undefined"}:
+            return None
+        if token in {"NaN", "Infinity", "+Infinity"}:
+            return float("nan") if token == "NaN" else float("inf")
+        if token == "-Infinity":
+            return float("-inf")
+        if re.fullmatch(r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?", token):
+            return float(token) if any(character in token for character in ".eE") else int(token)
+        raise ValueError(f"parse_javascript_array does not support literal: {token}")
+
+    def _read_hex(self, length: int) -> str:
+        value = self.source[self.index : self.index + length]
+        if len(value) != length or not re.fullmatch(r"[0-9A-Fa-f]+", value):
+            raise ValueError("parse_javascript_array found an invalid string escape")
+        self.index += length
+        return chr(int(value, 16))
+
+    def _read_until(self, delimiters: set[str]) -> str:
+        start = self.index
+        while self.index < len(self.source) and self.source[self.index] not in delimiters:
+            self.index += 1
+        return self.source[start : self.index]
+
+    def _skip_space_and_comments(self) -> None:
+        while self.index < len(self.source):
+            if self.source[self.index].isspace():
+                self.index += 1
+                continue
+            if self.source.startswith("//", self.index):
+                newline = self.source.find("\n", self.index + 2)
+                self.index = len(self.source) if newline == -1 else newline + 1
+                continue
+            if self.source.startswith("/*", self.index):
+                end = self.source.find("*/", self.index + 2)
+                if end == -1:
+                    raise ValueError("parse_javascript_array found an unterminated comment")
+                self.index = end + 2
+                continue
+            return
+
+    def _peek(self) -> str:
+        return self.source[self.index] if self.index < len(self.source) else ""
+
+    def _take(self) -> str:
+        if self.index >= len(self.source):
+            raise ValueError("parse_javascript_array reached the end unexpectedly")
+        character = self.source[self.index]
+        self.index += 1
+        return character
+
+
+@step("parse_javascript_array")
+class ParseJavascriptArrayStep(BaseStep[ParseJavascriptArrayConfig]):
+    """Convert a JavaScript array literal into JSON-compatible workflow data."""
+
+    config_model = ParseJavascriptArrayConfig
+
+    async def execute(self, context: WorkflowContext) -> list[Any]:
+        source = ExtractJavascriptArrayStep._extract_array(
+            self.config.content,
+            self.config.variable,
+        )
+        parsed = _JavascriptLiteralParser(source).parse_array()
+        if self.config.fields is not None:
+            parsed = self._map_fields(parsed, self.config.fields)
+        context.outputs[self.config.save_as] = parsed
+        return parsed
+
+    @staticmethod
+    def _map_fields(items: list[Any], fields: list[str]) -> list[dict[str, Any]]:
+        mapped: list[dict[str, Any]] = []
+        for index, item in enumerate(items):
+            if not isinstance(item, list):
+                raise ValueError(
+                    f"parse_javascript_array item {index} is not an array and cannot use fields"
+                )
+            if len(item) != len(fields):
+                raise ValueError(
+                    f"parse_javascript_array item {index} has {len(item)} values; "
+                    f"expected {len(fields)} fields"
+                )
+            mapped.append(dict(zip(fields, item, strict=True)))
+        return mapped
 
 
 class SaveHtmlConfig(BaseModel):

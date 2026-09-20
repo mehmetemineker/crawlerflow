@@ -128,3 +128,24 @@ browser. Nested arrays, quoted brackets, and JavaScript comments are preserved.
 
 The result is written as `const locations = [...];`. Set `declaration_kind` to `let`, `var`, or
 `null` when a different declaration or only the array source is needed.
+
+To convert positional rows into JSON objects, use `parse_javascript_array` directly on the source:
+
+```yaml
+- parse_javascript_array:
+    content: "{{page_response.raw_body}}"
+    variable: locations
+    fields:
+      - content
+      - latitude
+      - longitude
+      - id
+    save_as: locations
+
+- save_json:
+    path: output/locations.json
+    data: "{{locations}}"
+```
+
+The parser supports nested arrays and objects, quoted strings, numbers, booleans, `null`, comments,
+and trailing commas. It does not execute JavaScript; unsupported expressions are rejected.

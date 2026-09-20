@@ -85,6 +85,32 @@ steps:
     assert context.outputs["filtered"] == {"id": 7, "display_name": "Mehmet"}
 
 
+@pytest.mark.asyncio
+async def test_filter_json_parses_raw_json_string(tmp_path: Path) -> None:
+    workflow_path = tmp_path / "filter-json-string.yaml"
+    workflow_path.write_text(
+        """
+version: 1
+workflow:
+  name: filter-json-string
+steps:
+  - filter_json:
+      data: '{"data": {"pharmacies": [{"id": 1}, {"id": 2}]}}'
+      items_path: data.pharmacies
+      where:
+        - path: id
+          operator: eq
+          value: 2
+      save_as: filtered
+""".strip(),
+        encoding="utf-8",
+    )
+
+    context = await WorkflowRunner().run(workflow_path)
+
+    assert context.outputs["filtered"]["data"]["pharmacies"] == [{"id": 2}]
+
+
 def test_filter_json_rejects_invalid_items_path(tmp_path: Path) -> None:
     workflow_path = tmp_path / "invalid-filter-json.yaml"
     workflow_path.write_text(
