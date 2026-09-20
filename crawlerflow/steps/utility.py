@@ -19,6 +19,7 @@ from crawlerflow.browser import BrowserResponse
 from crawlerflow.engine.context import WorkflowContext
 from crawlerflow.engine.registry import BaseStep, step
 from crawlerflow.events import EventName
+from crawlerflow.expressions.conditions import ConditionOperator
 
 console = Console()
 
@@ -84,6 +85,137 @@ class SaveJsonStep(BaseStep[SaveJsonConfig]):
             json.dumps(self.config.data, ensure_ascii=False, indent=self.config.indent),
             encoding="utf-8",
         )
+
+
+class JsonFilterRule(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    path: str = Field(min_length=1)
+    operator: ConditionOperator
+    value: Any = None
+
+
+class FilterJsonConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    data: Any
+    items_path: str | None = Field(default=None, min_length=1)
+    select: dict[str, str] | None = None
+    where: list[JsonFilterRule] = Field(default_factory=list)
+    save_as: str = Field(pattern=r"^[A-Za-z_]\w*$")
+
+    @field_validator("items_path")
+    @classmethod
+    def validate_items_path(cls, value: str | None) -> str | None:
+        if value is not None and any(not part.strip() for part in value.split(".")):
+            raise ValueError("filter_json items_path contains an empty segment")
+        return value
+
+    @field_validator("select")
+    @classmethod
+    def validate_select_paths(cls, value: dict[str, str] | None) -> dict[str, str] | None:
+        if value is None:
+            return None
+        for output_path, source_path in value.items():
+            if not output_path.strip() or any(
+                not part.strip() for part in output_path.split(".")
+            ):
+                raise ValueError("filter_json select contains an invalid output path")
+            if not source_path.strip() or any(
+                not part.strip() for part in source_path.split(".")
+            ):
+                raise ValueError("filter_json select contains an invalid source path")
+        return value
+
+
+@step("filter_json")
+class FilterJsonStep(BaseStep[FilterJsonConfig]):
+    """Filter JSON objects and arrays before saving or passing them onward."""
+
+    config_model = FilterJsonConfig
+    _missing = object()
+
+    async def execute(self, context: WorkflowContext) -> Any:
+        filtered_data = deepcopy(self.config.data)
+        if self.config.items_path is None:
+            result = self._filter_root(context, filtered_data)
+        else:
+            target = self._lookup(filtered_data, self.config.items_path)
+            if not isinstance(target, list):
+                raise ValueError(
+                    f"filter_json items_path must point to a list: {self.config.items_path}"
+                )
+            self._set_path(
+                filtered_data,
+                self.config.items_path,
+                self._filter_items(context, target),
+            )
+            result = filtered_data
+
+        context.outputs[self.config.save_as] = result
+        return result
+
+    def _filter_root(self, context: WorkflowContext, data: Any) -> Any:
+        if isinstance(data, list):
+            return self._filter_items(context, data)
+        if isinstance(data, dict):
+            if not self._matches(context, data):
+                return None
+            return self._select(data)
+        raise ValueError("filter_json data must be a JSON object or array")
+
+    def _filter_items(self, context: WorkflowContext, items: list[Any]) -> list[Any]:
+        result = []
+        for item in items:
+            if not isinstance(item, dict):
+                if self.config.where or self.config.select is not None:
+                    raise ValueError("filter_json where/select requires object items")
+                result.append(item)
+                continue
+            if self._matches(context, item):
+                result.append(self._select(item))
+        return result
+
+    def _matches(self, context: WorkflowContext, item: dict[str, Any]) -> bool:
+        for rule in self.config.where:
+            value = self._lookup(item, rule.path)
+            if value is self._missing:
+                return False
+            if not context.condition_engine.evaluate(
+                {"left": value, "operator": rule.operator, "right": rule.value}
+            ):
+                return False
+        return True
+
+    def _select(self, item: dict[str, Any]) -> dict[str, Any]:
+        if self.config.select is None:
+            return item
+        result: dict[str, Any] = {}
+        for output_path, source_path in self.config.select.items():
+            value = self._lookup(item, source_path)
+            if value is not self._missing:
+                self._set_path(result, output_path, deepcopy(value))
+        return result
+
+    @classmethod
+    def _lookup(cls, value: Any, path: str) -> Any:
+        current = value
+        for part in path.split("."):
+            if not isinstance(current, dict) or part not in current:
+                return cls._missing
+            current = current[part]
+        return current
+
+    @classmethod
+    def _set_path(cls, value: dict[str, Any], path: str, replacement: Any) -> None:
+        parts = path.split(".")
+        current = value
+        for part in parts[:-1]:
+            child = current.get(part)
+            if not isinstance(child, dict):
+                raise ValueError(f"filter_json path is not an object: {path}")
+            current = child
+        current[parts[-1]] = replacement
 
 
 class ExtractJavascriptArrayConfig(BaseModel):

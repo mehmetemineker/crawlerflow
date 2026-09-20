@@ -78,6 +78,37 @@ The original `map` field is retained. Successful objects receive numeric `latitu
 field name to also store the resolved URL. `on_url_error` accepts `fail` or `continue`; continued
 errors are available in `json_location_enrichment_errors` workflow storage.
 
+## Filter JSON content
+
+Use `filter_json` to filter an array with one or more `where` rules and optionally project only
+selected fields. `items_path` points to a nested array; without it, the input itself can be an array
+or a single object. Rules are combined with `AND` and use the same operators as the `if` step.
+
+```yaml
+- filter_json:
+    data: "{{response.body}}"
+    items_path: data.items
+    where:
+      - path: status
+        operator: eq
+        value: active
+      - path: score
+        operator: gte
+        value: 50
+    select:
+      id: id
+      name: profile.name
+    save_as: filtered_items
+
+- save_json:
+    path: output/items.json
+    data: "{{filtered_items}}"
+```
+
+`select` maps output field paths to source field paths. Missing selected fields are omitted. Supported
+operators are `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `contains`, `not_contains`, `in`, `not_in`,
+`truthy`, and `falsy`.
+
 ## Extract a JavaScript array
 
 `extract_javascript_array` reads an assigned array from HTML or JavaScript text without starting a
