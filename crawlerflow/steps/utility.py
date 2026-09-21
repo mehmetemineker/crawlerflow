@@ -753,35 +753,65 @@ class _SimpleHtmlSelector:
     tag: str | None
     element_id: str | None
     classes: frozenset[str]
+    attributes: tuple[tuple[str, str], ...]
 
-    _pattern = re.compile(
-        r"(?P<tag>[A-Za-z][A-Za-z0-9:_-]*)?"
-        r"(?P<suffix>(?:[.#][A-Za-z_][A-Za-z0-9_-]*)*)"
+    _identifier = re.compile(r"[A-Za-z_][A-Za-z0-9_-]*")
+    _tag = re.compile(r"[A-Za-z][A-Za-z0-9:_-]*")
+    _attribute = re.compile(
+        r"\[\s*([A-Za-z_:][A-Za-z0-9:_.-]*)\s*=\s*"
+        r"(?:\"([^\"]*)\"|'([^']*)'|([^\]\s]+))\s*\]"
     )
 
     @classmethod
     def parse(cls, selector: str) -> _SimpleHtmlSelector:
-        match = cls._pattern.fullmatch(selector.strip())
-        if match is None or not (match.group("tag") or match.group("suffix")):
-            raise ValueError(
-                "Browser-free save_html selectors support tag, #id, and .class combinations"
-            )
+        source = selector.strip()
+        index = 0
+        tag: str | None = None
         element_id: str | None = None
         classes: set[str] = set()
-        for prefix, value in re.findall(
-            r"([.#])([A-Za-z_][A-Za-z0-9_-]*)",
-            match.group("suffix"),
-        ):
-            if prefix == "#":
-                if element_id is not None:
-                    raise ValueError("Browser-free save_html selector cannot contain multiple IDs")
-                element_id = value
-            else:
-                classes.add(value)
+        attributes: list[tuple[str, str]] = []
+        tag_match = cls._tag.match(source)
+        if tag_match is not None:
+            tag = tag_match.group().lower()
+            index = tag_match.end()
+        while index < len(source):
+            prefix = source[index]
+            if prefix in {"#", "."}:
+                identifier = cls._identifier.match(source, index + 1)
+                if identifier is None:
+                    break
+                value = identifier.group()
+                if prefix == "#":
+                    if element_id is not None:
+                        raise ValueError(
+                            "Browser-free save_html selector cannot contain multiple IDs"
+                        )
+                    element_id = value
+                else:
+                    classes.add(value)
+                index = identifier.end()
+                continue
+            if prefix == "[":
+                attribute = cls._attribute.match(source, index)
+                if attribute is None:
+                    break
+                value = next(
+                    group for group in attribute.groups()[1:] if group is not None
+                )
+                attributes.append((attribute.group(1).lower(), value))
+                index = attribute.end()
+                continue
+            break
+        if index != len(source) or not (tag or element_id or classes or attributes):
+            raise ValueError(
+                "Browser-free save_html selectors support tag, #id, .class, and exact "
+                "[attribute=value] combinations"
+            )
         return cls(
-            tag=match.group("tag").lower() if match.group("tag") else None,
+            tag=tag,
             element_id=element_id,
             classes=frozenset(classes),
+            attributes=tuple(attributes),
         )
 
     def matches(self, tag: str, attrs: list[tuple[str, str | None]]) -> bool:
@@ -791,7 +821,9 @@ class _SimpleHtmlSelector:
         if self.element_id is not None and attributes.get("id") != self.element_id:
             return False
         element_classes = frozenset(attributes.get("class", "").split())
-        return self.classes <= element_classes
+        if not self.classes <= element_classes:
+            return False
+        return all(attributes.get(name) == value for name, value in self.attributes)
 
 
 @dataclass(slots=True, frozen=True)
@@ -802,15 +834,51 @@ class _HtmlSelector:
     def parse(cls, selector: str) -> _HtmlSelector:
         parts = tuple(
             _SimpleHtmlSelector.parse(part)
-            for part in re.split(r"\s+", selector.strip())
+            for part in cls._split_parts(selector.strip())
             if part
         )
         if not parts:
             raise ValueError(
-                "Browser-free save_html selectors support tag, #id, .class, and descendant "
-                "combinations"
+                "Browser-free save_html selectors support tag, #id, .class, exact "
+                "[attribute=value], and descendant combinations"
             )
         return cls(parts=parts)
+
+    @staticmethod
+    def _split_parts(selector: str) -> list[str]:
+        parts: list[str] = []
+        current: list[str] = []
+        bracket_depth = 0
+        quote: str | None = None
+        for character in selector:
+            if quote is not None:
+                current.append(character)
+                if character == quote:
+                    quote = None
+                continue
+            if character in {'"', "'"} and bracket_depth:
+                quote = character
+                current.append(character)
+                continue
+            if character == "[":
+                bracket_depth += 1
+                current.append(character)
+                continue
+            if character == "]":
+                bracket_depth -= 1
+                current.append(character)
+                continue
+            if character.isspace() and bracket_depth == 0:
+                if current:
+                    parts.append("".join(current))
+                    current = []
+                continue
+            current.append(character)
+        if current:
+            parts.append("".join(current))
+        if quote is not None or bracket_depth != 0:
+            raise ValueError("Browser-free save_html selector has invalid attribute syntax")
+        return parts
 
     def matches(
         self,

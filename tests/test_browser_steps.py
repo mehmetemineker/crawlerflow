@@ -446,6 +446,40 @@ steps:
 
 
 @pytest.mark.asyncio
+async def test_save_html_filters_exact_attribute_selectors_without_browser(
+    tmp_path: Path,
+) -> None:
+    workflow_path = tmp_path / "selected-attribute-html-without-browser.yaml"
+    workflow_path.write_text(
+        """
+version: 1
+workflow:
+  name: selected-attribute-html-without-browser
+steps:
+  - save_html:
+      path: selected.html
+      content: >-
+        <table><tbody>
+        <tr style="font-weight:bold;"><td>Included one</td></tr>
+        <tr style="font-weight:normal;"><td>Ignored</td></tr>
+        <tr style="font-weight:bold;"><td>Included two</td></tr>
+        </tbody></table>
+      selectors: 'table tr[style="font-weight:bold;"]'
+""".strip(),
+        encoding="utf-8",
+    )
+
+    context = await WorkflowRunner().run(workflow_path)
+
+    expected = (
+        '<tr style="font-weight:bold;"><td>Included one</td></tr>\n'
+        '<tr style="font-weight:bold;"><td>Included two</td></tr>'
+    )
+    assert (tmp_path / "selected.html").read_text(encoding="utf-8") == expected
+    assert context.last_html == expected
+
+
+@pytest.mark.asyncio
 async def test_save_html_preserves_declared_selector_order_without_browser(
     tmp_path: Path,
 ) -> None:

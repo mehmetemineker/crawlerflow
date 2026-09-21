@@ -80,10 +80,11 @@ formatting, and file writing:
 ```
 
 When no browser adapter is configured, supplied HTML can still be filtered with CSS selectors
-composed from a tag, `#id`, one or more `.class` parts, and descendant combinations. Supported
-examples include `.result`, `div.result`, `section#main.result`, and
-`.main-content .sixteen.columns`. Other CSS combinators, attribute selectors, pseudo-classes, and
-XPath continue to use the active browser DOM implementation.
+composed from a tag, `#id`, one or more `.class` parts, exact `[attribute=value]` selectors, and
+descendant combinations. Supported examples include `.result`, `div.result`,
+`section#main.result`, `.main-content .sixteen.columns`, and
+`table tr[style="font-weight:bold;"]`. Other CSS combinators, attribute operators, pseudo-classes,
+and XPath continue to use the active browser DOM implementation.
 
 ## Empty results
 
