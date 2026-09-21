@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-09-21
+
+### Added
+
+- Browser-free `save_html` support for exact CSS attribute selectors such as
+  `table tr[style="font-weight:bold;"]`.
+
 ## [0.6.0] - 2026-09-20
 
 ### Added
@@ -80,6 +87,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Plugin API with typed settings, lifecycle hooks, steps, filters, and subscribers.
 - `run`, `validate`, `list-steps`, `list-plugins`, and `doctor` CLI commands.
 
+[0.7.0]: https://github.com/mehmetemineker/crawlerflow/releases/tag/v0.7.0
 [0.6.0]: https://github.com/mehmetemineker/crawlerflow/releases/tag/v0.6.0
 [0.5.0]: https://github.com/mehmetemineker/crawlerflow/releases/tag/v0.5.0
 [0.4.0]: https://github.com/mehmetemineker/crawlerflow/releases/tag/v0.4.0
